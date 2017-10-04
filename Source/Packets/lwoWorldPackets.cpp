@@ -13,19 +13,7 @@ void lwoWorldPackets::validateClient(RakPeerInterface* rakServer, Packet* packet
 } //validateClient
 
 void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* packet) {
-	std::ostringstream buffer;
-
-	buffer << "Data (in bytes): ";
-
-	for (uint32_t i = 0; i < packet->length; ++i) {
-		if (i % 16 == 0) buffer << "\n\t\t";
-		else buffer << " ";
-		buffer << std::setw(2) << std::hex << std::setfill('0') << static_cast<uint32_t>(packet->data[i]);
-	}
-
-	buffer << "\n\n";
-	std::string bufferStr = buffer.str();
-	std::cout << bufferStr << std::endl;
+	std::cout << "TODO" << std::endl;
 } //createNewMinifig
 
 void lwoWorldPackets::sendMinifigureList(RakPeerInterface* rakServer, Packet* packet) {

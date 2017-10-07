@@ -132,6 +132,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>./Lib/RakNetLibStatic.lib;./MySQL/lib/opt/mysqlcppconn.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4251 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -272,6 +273,8 @@
     <ClInclude Include="Source\Database.h" />
     <ClInclude Include="Source\lwoPacketHandler.h" />
     <ClInclude Include="Source\lwoPacketIdentifiers.h" />
+    <ClInclude Include="Source\lwoUser.h" />
+    <ClInclude Include="Source\lwoUserPool.h" />
     <ClInclude Include="Source\Packets\lwoAuthPackets.h" />
     <ClInclude Include="Source\Packets\lwoPacketUtils.h" />
     <ClInclude Include="Source\Packets\lwoServerPackets.h" />
@@ -355,6 +358,8 @@
     <ClCompile Include="RakNet\_FindFirst.cpp" />
     <ClCompile Include="Source\Database.cpp" />
     <ClCompile Include="Source\lwoPacketHandler.cpp" />
+    <ClCompile Include="Source\lwoUser.cpp" />
+    <ClCompile Include="Source\lwoUserPool.cpp" />
     <ClCompile Include="Source\lwoWorld.cpp" />
     <ClCompile Include="Source\Packets\lwoAuthPackets.cpp" />
     <ClCompile Include="Source\Packets\lwoPacketUtils.cpp" />

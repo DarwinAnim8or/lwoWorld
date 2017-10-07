@@ -26,12 +26,30 @@ void lwoPacketUtils::writeStringToPacket(std::string sString, int maxSize, RakNe
 	}
 } //writeStringToPacket
 
+int lwoPacketUtils::readInt(int startLoc, int endLoc, Packet* packet) {
+	std::vector<unsigned char> t;
+	for (int i = startLoc; i <= endLoc; i++) t.push_back(packet->data[i]);
+	return *(int*)t.data();
+} //readInt
+
+unsigned long lwoPacketUtils::readLong(int startLoc, int endLoc, Packet* packet) {
+	std::vector<unsigned char> t;
+	for (int i = startLoc; i <= endLoc; i++) t.push_back(packet->data[i]);
+	return *(unsigned long*)t.data();
+} //readLong
+
+unsigned long long lwoPacketUtils::readLongLong(int startLoc, int endLoc, Packet* packet) {
+	std::vector<unsigned char> t;
+	for (int i = startLoc; i <= endLoc; i++) t.push_back(packet->data[i]);
+	return *(unsigned long long*)t.data();
+} //readLongLong
+
 std::string lwoPacketUtils::readWStringAsString(unsigned int iStrStartLoc, Packet* packet) {
 	std::string sToReturn = "";
 
 	if (packet->length > iStrStartLoc) {
-		uint32_t i = 0;
-		while (packet->data[iStrStartLoc + i] != '\0' && packet->length > int((iStrStartLoc + i))) {
+		int i = 0;
+		while (packet->data[iStrStartLoc + i] != '\0' && packet->length > unsigned int((iStrStartLoc + i))) {
 			sToReturn.push_back(packet->data[iStrStartLoc + i]);
 			i = i + 2;
 		}

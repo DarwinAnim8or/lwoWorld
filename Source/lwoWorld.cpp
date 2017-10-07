@@ -7,11 +7,13 @@
 #include "MessageIdentifiers.h"
 #include "Database.h"
 #include <conio.h>
+#include <time.h>
 
 //========== Non-lwo includes above =|= lwo includes below ============
 
 #include "lwoPacketIdentifiers.h"
 #include "lwoPacketHandler.h"
+#include "lwoUserPool.h"
 
 //========== lwo includes above =|= code below ===========
 
@@ -19,6 +21,8 @@ int main(int argc, char* argv[]) {
 	RakPeerInterface* rakServer = RakNetworkFactory::GetRakPeerInterface();
 	Packet *packet;
 	unsigned int iServerVersion = 130529; //The version the client must have
+	lwoUserPool* userPool = new lwoUserPool;
+	srand(time(NULL));
 
 	std::cout << "===================================================================" << std::endl;
 	std::cout << "lwoWorld, a simple test (world) server for the ALPHA version of LU." << std::endl;
@@ -44,7 +48,7 @@ int main(int argc, char* argv[]) {
 	unsigned int iZoneID = 0;
 
 	if (argv[1] != NULL) { 
-		unsigned int iZoneID = atoi(argv[1]); 
+		iZoneID = atoi(argv[1]); 
 	}
 
 	try {
@@ -70,6 +74,12 @@ int main(int argc, char* argv[]) {
 		}
 
 		delete infoRes;
+
+		std::cout << "Got zone info from database:" << std::endl;
+		std::cout << "ZoneID: " << iZoneID << std::endl;
+		std::cout << "Checksum: " << i64Checksum << std::endl;
+		std::cout << "Max players: " << usMaxPlayers << std::endl;
+		std::cout << "GM level: " << iServerGMLevel << std::endl;
 	}
 	else {
 		usServerPort = 2002; //default to char server
@@ -93,6 +103,7 @@ int main(int argc, char* argv[]) {
 
 	//For now, I don't care about cloneID or instanceID.
 	if (iZoneID != 0) usServerPort++; //Don't increment the port number if we're running in char mode.
+	if (iZoneID != 0 && usServerPort <= 2002) usServerPort = 2003; //Make sure our port number is never below 2002.
 	sql::PreparedStatement* qrInsertUs = Database::CreatePreppedStmt("INSERT INTO `servers`(`ip`, `port`, `version`, `zoneID`, `cloneID`, `instanceID`) VALUES(?, ?, ?, ?, ?, ?);");
 	qrInsertUs->setString(1, "localhost"); //This is hardcoded for now, but it will be in the config file later. 
 	qrInsertUs->setInt(2, usServerPort);
@@ -130,7 +141,7 @@ int main(int argc, char* argv[]) {
 				break;
 
 			case ID_USER_PACKET_ENUM:
-				lwoPacketHandler::determinePacketHeader(rakServer, packet); // really just a "first pass" if you will to see if it's of any use to us.
+				lwoPacketHandler::determinePacketHeader(rakServer, packet, userPool); // really just a "first pass" if you will to see if it's of any use to us.
 				break;
 
 			case ID_NEW_INCOMING_CONNECTION:

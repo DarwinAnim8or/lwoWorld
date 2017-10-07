@@ -4,7 +4,7 @@
 #include "./Packets/lwoWorldPackets.h"
 #include <stdio.h>
 
-void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet* packet) {
+void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
 	switch (packet->data[1]) { //First byte determines the connection type.
 	case CONN_SERVER:
 		handleServerConnPackets(rakServer, packet);
@@ -13,10 +13,10 @@ void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet
 		handleAuthConnPackets(rakServer, packet);
 		break;
 	case CONN_CHAT:
-		handleChatConnPackets(rakServer, packet);
+		handleChatConnPackets(rakServer, packet, userPool);
 		break;
 	case CONN_WORLD:
-		handleWorldConnPackets(rakServer, packet);
+		handleWorldConnPackets(rakServer, packet, userPool);
 		break;
 	default:
 		printf("Unknown connection type: %i\n", packet->data[1]);
@@ -58,22 +58,32 @@ void lwoPacketHandler::handleAuthConnPackets(RakPeerInterface* rakServer, Packet
 	}
 } //handleServerConnPackets
 
-void lwoPacketHandler::handleChatConnPackets(RakPeerInterface* rakServer, Packet* packet) {
+void lwoPacketHandler::handleChatConnPackets(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
 	//TODO
 } //handleServerConnPackets
 
-void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packet* packet) {
+void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
+	lwoUser* user = userPool->Find(packet->systemAddress); //Doesn't matter if the user doesn't exist yet when first connecting to world.
+
 	switch (packet->data[3]) {
 	case MSG_WORLD_CLIENT_VALIDATION: {
-		lwoWorldPackets::validateClient(rakServer, packet);
+		lwoWorldPackets::validateClient(rakServer, packet, userPool);
 		break;
 	}
 	case MSG_WORLD_CLIENT_CHARACTER_CREATE_REQUEST: {
-		lwoWorldPackets::createNewMinifig(rakServer, packet);
+		lwoWorldPackets::createNewMinifig(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_LOGIN_REQUEST: {
+		lwoWorldPackets::clientLoginRequest(rakServer, packet, user);
 		break;
 	}
 	case MSG_WORLD_CLIENT_CHARACTER_LIST_REQUEST: {
-		lwoWorldPackets::sendMinifigureList(rakServer, packet);
+		lwoWorldPackets::sendMinifigureList(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_LOCK_MAP_REQUEST: {
+		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user);
 		break;
 	}
 	default:

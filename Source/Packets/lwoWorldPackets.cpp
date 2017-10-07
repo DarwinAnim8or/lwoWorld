@@ -6,10 +6,17 @@
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#include <chrono>
+#include <thread>
 
 //Local functions as they aren't needed by anything else, leave the implementations at the bottom!
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle);
 unsigned long FindCharPantsID(unsigned long pantsColor);
+
+extern std::string g_BaseIP;
+extern int g_ourPort;
+extern int g_ourZone;
+extern unsigned int g_ourZoneRevision;
 
 void lwoWorldPackets::validateClient(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
 	//This packet has changed a LOT since alpha and we don't have any clue as to what all the other data is,
@@ -29,6 +36,21 @@ void lwoWorldPackets::validateClient(RakPeerInterface* rakServer, Packet* packet
 
 	shared_ptr<lwoUser> userToInsert = make_shared<lwoUser>(iAccountID, sUsername, packet->systemAddress);
 	userPool->Insert(packet->systemAddress, userToInsert);
+
+	if (g_ourPort != 2002) { //if not running as char, send TransferToZone/LoadStaticZone:
+		RakNet::BitStream bitStream;
+		lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_LOAD_STATIC_ZONE, &bitStream);
+		bitStream.Write(unsigned short(g_ourZone));
+		bitStream.Write(unsigned short(0)); //instance
+		bitStream.Write(unsigned int(0)); //clone
+		bitStream.Write(unsigned int(g_ourZoneRevision)); 
+		bitStream.Write(unsigned short(0)); //???
+		bitStream.Write(float(0));
+		bitStream.Write(float(0));
+		bitStream.Write(float(0));
+		bitStream.Write(unsigned int(0)); //== 4 if battle instance
+		rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+	}
 } //validateClient
 
 void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
@@ -63,7 +85,7 @@ void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* pack
 	sql::ResultSet* nameRes = nameCheck->executeQuery();
 
 	if (nameRes->rowsCount() == 0) {
-		sql::PreparedStatement* insertFig = Database::CreatePreppedStmt("INSERT INTO `minifigs`(`accountID`, `playerName`, `tempName`, `bNameApproved`, `gmlevel`, `eyes`, `eyeBrows`, `mouth`, `hair`, `hairColor`, `health`, `maxHealth`, `lastZoneID`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+		sql::PreparedStatement* insertFig = Database::CreatePreppedStmt("INSERT INTO `minifigs`(`accountID`, `playerName`, `tempName`, `bNameApproved`, `gmlevel`, `eyes`, `eyeBrows`, `mouth`, `hair`, `hairColor`, `health`, `maxHealth`, `lastZoneID`, `lh`, `rh`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 		insertFig->setInt64(1, user->UserID());
 		insertFig->setString(2, sMinifigName);
 		insertFig->setString(3, sMinifigTempName);
@@ -77,7 +99,40 @@ void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* pack
 		insertFig->setInt(11, 4);
 		insertFig->setInt(12, 4);
 		insertFig->setInt(13, 1000);
+		insertFig->setInt(14, iLH);
+		insertFig->setInt(15, iRH);
 		insertFig->executeQuery();
+
+		//Insert the items:
+		unsigned long long playerObjectID = 0;
+		sql::PreparedStatement* getObjID = Database::CreatePreppedStmt("SELECT `objectID` FROM `minifigs` WHERE `playerName`=? LIMIT 1;");
+		getObjID->setString(1, sMinifigName);
+		sql::ResultSet* objRes = getObjID->executeQuery();
+		while (objRes->next()) {
+			playerObjectID = objRes->getUInt64(1);
+		}
+
+		delete objRes;
+		
+		sql::PreparedStatement* insertShirt = Database::CreatePreppedStmt("INSERT INTO `items`(`ownerID`, `LOT`, `bEquipped`, `equipLocation`, `slot`, `bagID`, `count`) VALUES (?,?,?,?,?,?,?)");
+		insertShirt->setInt64(1, playerObjectID);
+		insertShirt->setInt(2, iShirtID);
+		insertShirt->setInt(3, 1);
+		insertShirt->setString(4, "torso");
+		insertShirt->setInt(5, 1);
+		insertShirt->setInt(6, 1);
+		insertShirt->setInt(7, 1);
+		insertShirt->executeQuery();
+
+		sql::PreparedStatement* insertPants = Database::CreatePreppedStmt("INSERT INTO `items`(`ownerID`, `LOT`, `bEquipped`, `equipLocation`, `slot`, `bagID`, `count`) VALUES (?,?,?,?,?,?,?)");
+		insertPants->setInt64(1, playerObjectID);
+		insertPants->setInt(2, iPantsID);
+		insertPants->setInt(3, 1);
+		insertPants->setString(4, "legs");
+		insertPants->setInt(5, 2);
+		insertPants->setInt(6, 1);
+		insertPants->setInt(7, 1);
+		insertPants->executeQuery();
 
 		RakNet::BitStream bitStream;
 		lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_CHARACTER_CREATE_RESPONSE, &bitStream);
@@ -102,12 +157,48 @@ void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* pack
 } //createNewMinifig
 
 void lwoWorldPackets::clientLoginRequest(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
-	RakNet::BitStream inStream(packet->data, packet->length, false);
-	unsigned long long header = inStream.Read(header); //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
-	unsigned __int64 i64ObjectID = inStream.Read(i64ObjectID);
-	std::cout << "User x wants to log into the world using objectID: " << i64ObjectID << std::endl;
+	unsigned __int64 i64ObjectID = lwoPacketUtils::readLongLong(0x08, 0x0F, packet);
+	std::cout << "User: " << user->Username() << " wants to log into the world using objectID: " << i64ObjectID << std::endl;
 
-	//TODO: Actually redirect the player here by looking up which zone that character was last in & the server for it.
+	//Get the lastZoneID:
+	int iLastZoneID = 1000;
+	sql::PreparedStatement* getLZoneID = Database::CreatePreppedStmt("SELECT `lastZoneID` FROM `minifigs` WHERE `objectID`=? LIMIT 1;");
+	getLZoneID->setUInt64(1, i64ObjectID);
+	sql::ResultSet* zoneRes = getLZoneID->executeQuery();
+	while (zoneRes->next()) {
+		iLastZoneID = zoneRes->getInt(1);
+	}
+
+	delete zoneRes;
+
+	//Check which server:
+	std::string sIP = "";
+	int iPort = 2003;
+	sql::PreparedStatement* getServerQR = Database::CreatePreppedStmt("SELECT `ip`, `port` FROM `servers` WHERE `zoneID`=? LIMIT 1;");
+	getServerQR->setInt(1, iLastZoneID);
+	sql::ResultSet* serverRes = getServerQR->executeQuery();
+
+	while (serverRes->next()) {
+		sIP = serverRes->getString(1);
+		iPort = serverRes->getInt(2);
+	}
+
+	if (serverRes->rowsCount() == 0) { //time to start this server...
+		std::string cmd = "start lwoWorld.exe " + to_string(iLastZoneID);
+		system(cmd.c_str()); //lazy but it works.
+		sIP = g_BaseIP;
+	}
+
+	delete serverRes;
+
+	RakNet::BitStream bitStream;
+	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_TRANSFER_TO_WORLD, &bitStream);
+	lwoPacketUtils::writeStringToPacket(sIP, 33, &bitStream);
+	bitStream.Write(unsigned short(iPort)); //padding?
+	bitStream.Write(unsigned short(iPort));
+	bitStream.Write(unsigned char(0)); //bIsMythranShift
+	rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+	lwoPacketUtils::savePacket("clientLoginRequestResponse.bin", (char*)bitStream.GetData(), bitStream.GetNumberOfBytesUsed());
 } //clientLoginRequest
 
 void lwoWorldPackets::sendMinifigureList(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
@@ -121,39 +212,66 @@ void lwoWorldPackets::sendMinifigureList(RakPeerInterface* rakServer, Packet* pa
 	sql::ResultSet* infoRes = infoQR->executeQuery();
 
 	usCharacterCount = infoRes->rowsCount();
-	bitStream.Write(usCharacterCount);
-	bitStream.Write(usCharacterInFront);
+	cout << "Got: " << usCharacterCount << " figs for that user." << endl;
 
-	//NOTE -- THIS IS ENTIRELY WRONG! 
-	//Still need to experiment with it, DO NOT USE!
+	bitStream.Write((unsigned char)usCharacterCount);
+	bitStream.Write((unsigned char)usCharacterInFront);
+
 	while (infoRes->next()) {
 		bitStream.Write(infoRes->getInt64(1));
-		bitStream.Write(int(0));
-		lwoPacketUtils::writeStringToPacket(infoRes->getString(3), 33, &bitStream);
-		lwoPacketUtils::writeStringToPacket(infoRes->getString(4), 33, &bitStream);
-		bitStream.Write(unsigned char(infoRes->getBoolean(5)));
-		bitStream.Write(unsigned long long(0));
-		bitStream.Write(unsigned short(0));
-		bitStream.Write(unsigned int(0));
-		bitStream.Write(unsigned int(2));
-		bitStream.Write(infoRes->getInt(11));
-		bitStream.Write(infoRes->getInt(10));
-		bitStream.Write(unsigned int(0));
-		bitStream.Write(unsigned int(0));
-		bitStream.Write(infoRes->getInt(8));
-		bitStream.Write(infoRes->getInt(7));
-		bitStream.Write(infoRes->getInt(9));
-		bitStream.Write(unsigned int(0));
-		bitStream.Write(unsigned short(infoRes->getInt(19)));
-		bitStream.Write(unsigned short(0));
-		bitStream.Write(unsigned int(0));
-		bitStream.Write(unsigned long long(0));
+		bitStream.Write(int(0)); //???
+
+		std::string sPlayerTempName = infoRes->getString(4);
+		std::wstring wsPlayerTempName = lwoPacketUtils::StringToWString(sPlayerTempName, sPlayerTempName.size());
+		bitStream.Write((char*)wsPlayerTempName.data(), sizeof(wchar_t) * wsPlayerTempName.size());
+		for (unsigned int i = 0; i < (66 - wsPlayerTempName.size() * 2); i++) {
+			unsigned char byte = 0;
+			bitStream.Write(byte);
+		}
+
+		std::string sPlayerName = infoRes->getString(3);
+		std::wstring wsPlayerName = lwoPacketUtils::StringToWString(sPlayerName, sPlayerName.size());
+		bitStream.Write((char*)wsPlayerName.data(), sizeof(wchar_t) * wsPlayerName.size());
+		for (unsigned int i = 0; i < (66 - wsPlayerName.size() * 2); i++) {
+			unsigned char byte = 0;
+			bitStream.Write(byte);
+		}
+
+		bitStream.Write(unsigned char(infoRes->getBoolean(5))); //bNameApproved
+		bitStream.Write(unsigned char(0)); //???
+		bitStream.Write(unsigned char(0)); //???
+		bitStream.Write(unsigned char(0x4D)); //???
+		bitStream.Write(unsigned long long(0)); //???
+		bitStream.Write(unsigned int(0)); //shirt color
+		bitStream.Write(unsigned int(6)); //shirt style
+		bitStream.Write(unsigned int(6)); //pants color
+		bitStream.Write(infoRes->getInt(10)); //hair style
+		bitStream.Write(infoRes->getInt(11)); //hair color
+		bitStream.Write(infoRes->getInt(20)); //lh
+		bitStream.Write(infoRes->getInt(21)); //rh
+		bitStream.Write(infoRes->getInt(8)); //eyebrows
+		bitStream.Write(infoRes->getInt(7)); //eyes
+		bitStream.Write(infoRes->getInt(9)); //mouth
+		bitStream.Write(unsigned int(0)); //???
+		bitStream.Write(unsigned short(infoRes->getInt(19))); //lastZoneId
+		bitStream.Write(unsigned short(0)); //lastMapInstance
+		bitStream.Write(unsigned int(0)); //lastMapClone
+		bitStream.Write(unsigned long long(0)); //last login timestamp
 
 		//Add the items:
-		bitStream.Write(unsigned short(0)); //item count
+		sql::PreparedStatement* itemsQR = Database::CreatePreppedStmt("SELECT `LOT` FROM `items` WHERE `ownerID`=? AND `bEquipped`=1 LIMIT 6;");
+		itemsQR->setInt64(1, infoRes->getInt64(1));
+		sql::ResultSet* itemsRes = itemsQR->executeQuery();
+
+		bitStream.Write(unsigned short(itemsRes->rowsCount())); //item count
+		cout << "User: " << sPlayerName << " (" << infoRes->getInt64(1) << ") has " << itemsRes->rowsCount() << " items equipped." << endl;
+		while (itemsRes->next()) {
+			bitStream.Write(itemsRes->getInt(1));
+		}
 	}
 
 	rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+	lwoPacketUtils::savePacket("charList.bin", (char*)bitStream.GetData(), bitStream.GetNumberOfBytesUsed());
 } //sendMinifigureList
 
 void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
@@ -162,7 +280,7 @@ void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet
 	unsigned short usZoneID = inStream.Read(usZoneID);
 	unsigned short usInstanceID = inStream.Read(usInstanceID);
 	unsigned int uiMapClone = inStream.Read(uiMapClone);
-	std::cout << "User x is done loading the zone, so send charData. (" << usZoneID << ":" << usInstanceID << ":" << uiMapClone << ")" << std::endl;
+	std::cout << "User " << user->Username() << " is done loading the zone, so send charData. (" << usZoneID << ":" << usInstanceID << ":" << uiMapClone << ")" << std::endl;
 
 	//TODO: Generate and send the character data (charData) now. 
 } //clientSideLoadComplete

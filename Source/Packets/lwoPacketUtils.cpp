@@ -68,3 +68,25 @@ bool lwoPacketUtils::savePacket(const std::string& sFileName, const char* cData,
 	ofFile.close();
 	return true;
 } //savePacket
+
+std::wstring lwoPacketUtils::StringToWString(const std::string& string, int size) {
+	std::wstring ret;
+	int newSize = size == -1 ? string.size() : (size > string.size() ? string.size() : size);
+
+	for (int i = 0; i < newSize; ++i) {
+		ret.push_back(string[i]);
+	}
+
+	return ret;
+}
+
+std::string lwoPacketUtils::WStringToString(const std::wstring& string, int size) {
+	std::string ret;
+	int newSize = size == -1 ? string.size() : (size > string.size() ? string.size() : size);
+
+	for (int i = 0; i < newSize; ++i) {
+		ret.push_back(string[i]);
+	}
+
+	return ret;
+}

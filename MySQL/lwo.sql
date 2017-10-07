@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Gegenereerd op: 03 okt 2017 om 17:19
+-- Gegenereerd op: 08 okt 2017 om 00:36
 -- Serverversie: 10.1.25-MariaDB
 -- PHP-versie: 5.6.31
 
@@ -40,6 +40,60 @@ CREATE TABLE `accounts` (
 -- --------------------------------------------------------
 
 --
+-- Tabelstructuur voor tabel `items`
+--
+
+CREATE TABLE `items` (
+  `objectID` bigint(64) NOT NULL,
+  `ownerID` bigint(64) NOT NULL,
+  `LOT` bigint(64) NOT NULL,
+  `bEquipped` tinyint(1) NOT NULL,
+  `equipLocation` text NOT NULL,
+  `slot` int(10) NOT NULL,
+  `bagID` int(10) NOT NULL,
+  `count` int(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- --------------------------------------------------------
+
+--
+-- Tabelstructuur voor tabel `minifigs`
+--
+
+CREATE TABLE `minifigs` (
+  `objectID` bigint(64) NOT NULL,
+  `accountID` bigint(64) NOT NULL,
+  `playerName` text NOT NULL,
+  `tempName` text NOT NULL,
+  `bNameApproved` tinyint(1) NOT NULL,
+  `gmlevel` int(9) NOT NULL,
+  `eyes` int(10) NOT NULL,
+  `eyeBrows` int(10) NOT NULL,
+  `mouth` int(10) NOT NULL,
+  `hair` int(10) NOT NULL,
+  `hairColor` int(10) NOT NULL,
+  `health` int(10) NOT NULL,
+  `armor` int(10) NOT NULL,
+  `imagination` int(10) NOT NULL,
+  `maxHealth` int(10) NOT NULL,
+  `maxArmor` int(10) NOT NULL,
+  `maxImagination` int(10) NOT NULL,
+  `selectedConsumable` int(10) NOT NULL,
+  `lastZoneID` bigint(64) NOT NULL,
+  `lh` int(10) NOT NULL,
+  `rh` int(10) NOT NULL,
+  `posX` int(10) DEFAULT NULL,
+  `posY` int(10) NOT NULL,
+  `posZ` int(10) NOT NULL,
+  `rotX` float NOT NULL,
+  `rotY` float NOT NULL,
+  `rotZ` float NOT NULL,
+  `rotW` float NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- --------------------------------------------------------
+
+--
 -- Tabelstructuur voor tabel `servers`
 --
 
@@ -71,9 +125,11 @@ CREATE TABLE `zones` (
 --
 
 INSERT INTO `zones` (`id`, `checksum`, `maxplayers`, `gmlevel`) VALUES
-(1000, 0, 9, 0),
-(1100, 0, 15, 0),
-(1200, 3999, 20, 0);
+(1000, 816, 9, 0),
+(1100, 3798, 15, 0),
+(1200, 3999, 20, 0),
+(1250, 440, 6, 0),
+(1300, 5864, 20, 0);
 
 --
 -- Indexen voor geëxporteerde tabellen
@@ -84,6 +140,19 @@ INSERT INTO `zones` (`id`, `checksum`, `maxplayers`, `gmlevel`) VALUES
 --
 ALTER TABLE `accounts`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexen voor tabel `items`
+--
+ALTER TABLE `items`
+  ADD PRIMARY KEY (`objectID`),
+  ADD KEY `objectID` (`objectID`);
+
+--
+-- Indexen voor tabel `minifigs`
+--
+ALTER TABLE `minifigs`
+  ADD PRIMARY KEY (`objectID`);
 
 --
 -- Indexen voor tabel `servers`
@@ -108,15 +177,25 @@ ALTER TABLE `zones`
 ALTER TABLE `accounts`
   MODIFY `id` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 --
+-- AUTO_INCREMENT voor een tabel `items`
+--
+ALTER TABLE `items`
+  MODIFY `objectID` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1152994869473527238;
+--
+-- AUTO_INCREMENT voor een tabel `minifigs`
+--
+ALTER TABLE `minifigs`
+  MODIFY `objectID` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1152921510473527056;
+--
 -- AUTO_INCREMENT voor een tabel `servers`
 --
 ALTER TABLE `servers`
-  MODIFY `id` bigint(64) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 --
 -- AUTO_INCREMENT voor een tabel `zones`
 --
 ALTER TABLE `zones`
-  MODIFY `id` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1201;COMMIT;
+  MODIFY `id` bigint(64) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1301;COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

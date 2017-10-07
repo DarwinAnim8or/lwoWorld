@@ -82,7 +82,7 @@ void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packe
 		lwoWorldPackets::sendMinifigureList(rakServer, packet, user);
 		break;
 	}
-	case MSG_WORLD_CLIENT_LOCK_MAP_REQUEST: {
+	case MSG_WORLD_CLIENT_LEVEL_LOAD_COMPLETE: {
 		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user);
 		break;
 	}

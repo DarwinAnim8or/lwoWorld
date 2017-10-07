@@ -17,6 +17,11 @@
 
 //========== lwo includes above =|= code below ===========
 
+std::string g_BaseIP = "localhost";
+int g_ourPort;
+int g_ourZone;
+unsigned int g_ourZoneRevision;
+
 int main(int argc, char* argv[]) {
 	RakPeerInterface* rakServer = RakNetworkFactory::GetRakPeerInterface();
 	Packet *packet;
@@ -80,6 +85,9 @@ int main(int argc, char* argv[]) {
 		std::cout << "Checksum: " << i64Checksum << std::endl;
 		std::cout << "Max players: " << usMaxPlayers << std::endl;
 		std::cout << "GM level: " << iServerGMLevel << std::endl;
+
+		g_ourZone = iZoneID;
+		g_ourZoneRevision = i64Checksum;
 	}
 	else {
 		usServerPort = 2002; //default to char server
@@ -105,13 +113,14 @@ int main(int argc, char* argv[]) {
 	if (iZoneID != 0) usServerPort++; //Don't increment the port number if we're running in char mode.
 	if (iZoneID != 0 && usServerPort <= 2002) usServerPort = 2003; //Make sure our port number is never below 2002.
 	sql::PreparedStatement* qrInsertUs = Database::CreatePreppedStmt("INSERT INTO `servers`(`ip`, `port`, `version`, `zoneID`, `cloneID`, `instanceID`) VALUES(?, ?, ?, ?, ?, ?);");
-	qrInsertUs->setString(1, "localhost"); //This is hardcoded for now, but it will be in the config file later. 
+	qrInsertUs->setString(1, g_BaseIP); //This is hardcoded for now, but it will be in the config file later. 
 	qrInsertUs->setInt(2, usServerPort);
 	qrInsertUs->setInt(3, iServerVersion);
 	qrInsertUs->setInt(4, iZoneID);
 	qrInsertUs->setInt(5, 0);
 	qrInsertUs->setInt(6, 0);
 	qrInsertUs->executeQuery();
+	g_ourPort = usServerPort;
 
 	rakServer->Startup(usMaxPlayers, 30, &SocketDescriptor(usServerPort, 0), 1);
 	rakServer->SetIncomingPassword("3.25 ND1", 8);

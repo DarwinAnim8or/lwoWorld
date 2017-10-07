@@ -9,4 +9,6 @@ namespace lwoPacketUtils {
 	unsigned long long readLongLong(int startLoc, int endLoc, Packet* packet);
 	std::string readWStringAsString(unsigned int iStrStartLoc, Packet* packet);
 	bool savePacket(const std::string& sFileName, const char* cData, int iLength);
+	std::wstring StringToWString(const std::string& string, int size);
+	std::string WStringToString(const std::wstring& string, int size);
 }

@@ -86,6 +86,10 @@ void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packe
 		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user);
 		break;
 	}
+	case MSG_WORLD_CLIENT_POSITION_UPDATE: {
+		//TODO
+		break;
+	}
 	default:
 		printf("Unknown world packet ID: %i\n", packet->data[3]);
 		break;

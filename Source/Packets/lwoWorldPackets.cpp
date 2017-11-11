@@ -1,5 +1,7 @@
 #include "lwoWorldPackets.h"
 #include "lwoPacketUtils.h"
+#include "../LDF.h"
+#include "../XMLData.h"
 
 #include <iostream>
 #include <fstream>
@@ -12,6 +14,8 @@
 //Local functions as they aren't needed by anything else, leave the implementations at the bottom!
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle);
 unsigned long FindCharPantsID(unsigned long pantsColor);
+void ConstructObject(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring name, unsigned long LOT);
+void CreatePlayer(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName);
 
 extern std::string g_BaseIP;
 extern int g_ourPort;
@@ -59,7 +63,7 @@ void lwoWorldPackets::createNewMinifig(RakPeerInterface* rakServer, Packet* pack
 	int iShirtStyle = lwoPacketUtils::readInt(0x56, 0x59, packet);
 	int iPantsColor = lwoPacketUtils::readInt(0x5A, 0x5D, packet);
 
-	int iHairStyle = lwoPacketUtils::readInt(0x5E, 0x61, packet); //Are these switched? 
+	int iHairStyle = lwoPacketUtils::readInt(0x5E, 0x61, packet);
 	int iHairColor = lwoPacketUtils::readInt(0x62, 0x65, packet);
 
 	int iLH = lwoPacketUtils::readInt(0x66, 0x69, packet);
@@ -283,7 +287,118 @@ void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet
 	std::cout << "User " << user->Username() << " is done loading the zone, so send charData. (" << usZoneID << ":" << usInstanceID << ":" << uiMapClone << ")" << std::endl;
 
 	//TODO: Generate and send the character data (charData) now. 
+
+	//Get the objectID:
+	__int64 objectID;
+	std::string playerName;
+	std::string tempName;
+	bool bNameApproved = false;
+
+	sql::PreparedStatement* minifigQR = Database::CreatePreppedStmt("SELECT `objectID`, `playerName`, `tempName`, `bNameApproved` FROM `minifigs` WHERE `accountID`=? LIMIT 1;");
+	minifigQR->setInt64(1, user->UserID());
+	sql::ResultSet* res = minifigQR->executeQuery();
+	while (res->next()) {
+		objectID = res->getInt64(1);
+		playerName = res->getString(2);
+		tempName = res->getString(3);
+		bNameApproved = res->getBoolean(4);
+	}
+
+	std::wstring nameToUse;
+	if (bNameApproved) nameToUse = lwoPacketUtils::StringToWString(playerName, playerName.size());
+	else nameToUse = lwoPacketUtils::StringToWString(tempName, tempName.size());
+
+	std::cout << "Creating player " << lwoPacketUtils::WStringToString(nameToUse, nameToUse.size()) << ":" << objectID << std::endl;
+	CreatePlayer(rakServer, packet, objectID, nameToUse);
+	ConstructObject(rakServer, packet, objectID, nameToUse, 1);
 } //clientSideLoadComplete
+
+void ConstructObject(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring name, unsigned long LOT) {
+	//WARNING, DO NOT USE! This is a temporary function Matt made to test out world loading. 
+	RakNet::BitStream* stream = new RakNet::BitStream();
+
+	stream->Write((unsigned char)0x24);
+	stream->Write(true);
+	stream->Write((short)0);
+
+	stream->Write(objectID);
+	stream->Write((long)LOT);
+
+	stream->Write((char)name.size());
+	lwoPacketUtils::writeWStringToPacket(stream, name);
+
+	for (int i = 0; i < 50; i++) {
+		stream->Write((short)0);
+	}
+
+	rakServer->Send(stream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+}
+
+void CreatePlayer(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName) {
+	RakNet::BitStream* stream = new RakNet::BitStream();;
+	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_CREATE_CHARACTER, stream);
+
+	RakNet::BitStream* ldfData = new RakNet::BitStream();;
+	LDF* ldf = new LDF();
+
+	ldf->SetBitStream(ldfData);
+
+	ldf->WriteS64(L"accountID", 1);
+	ldf->WriteOBJID(L"objid", objectID);
+	ldf->WriteS32(L"template", 1);
+	ldf->WriteBool(L"editor_enabled", true);
+	ldf->WriteS32(L"editor_level", 1);
+	ldf->WriteS32(L"gmlevel", 9);
+	ldf->WriteWString(L"name", playerName);
+
+	RakNet::BitStream* xmlData = new RakNet::BitStream();;
+	XMLDataWriter writer(xmlData);
+	writer.WriteXML("<obj v=\"1\">");
+	//writer.WriteXML("<mf hc=\"3\" hs=\"6\" hd=\"0\" t=\"4582\" l=\"2515\" hdc=\"0\" cd=\"24\" lh=\"31239184\" rh=\"30791876\" es=\"8\" ess=\"15\" ms=\"26\"/>");
+	//writer.WriteXML("<char acct=\"1\" cc=\"160\" gm=\"9\">");
+	//writer.WriteXML("<vl><l id=\"1100\" cid=\"0\"/></vl>");
+	//writer.WriteXML("<zs><s map=\"1100\" qbc=\"6\" cc=\"205\" bc=\"38\" ac=\"5\"/></zs>");
+	//writer.WriteXML("</char>");
+	//writer.WriteXML("<flag></flag>");
+
+	//writer.WriteXML("<dest hm=\"4\" hc=\"4\" im=\"6\" ic=\"6\" am=\"0\" ac=\"0\" d=\"0\"/>");
+
+	/*writer.WriteXML("<inv>");
+	writer.WriteXML("<bag>");
+	writer.WriteXML("<b t=\"0\" m=\"");
+	writer.WriteXML("24");
+	writer.WriteXML("\"/>");
+	writer.WriteXML("</bag>");
+	writer.WriteXML("</inv>");*/
+
+	writer.WriteXML("<inv><bag><b t=\"0\" m=\"20\"/><b t=\"1\" m=\"240\"/><b t=\"2\" m=\"240\"/><b t=\"3\" m=\"240\"/></bag><items><in t=\"0\"><i l=\"2515\" id=\"3027\" s=\"1\"/><i l=\"4582\" id=\"3026\" s=\"0\"/></in><in t=\"5\"><i l=\"14454\" id=\"3034\" s=\"5\" eq=\"0\" c=\"3\"/><i l=\"4713\" id=\"3033\" s=\"4\" eq=\"0\"/><i l=\"14455\" id=\"3032\" s=\"3\" eq=\"0\"/><i l=\"14445\" id=\"3031\" s=\"2\" eq=\"0\"/><i l=\"4714\" id=\"3028\" s=\"1\" eq=\"0\"/></in><in t=\"2\"></in><in t=\"7\"></in></items></inv>");
+
+	writer.WriteXML("</obj>");
+
+	//writer.WriteXML("<in/>")
+	/*
+
+	writer.WriteXML("<items>");
+	writer.WriteXML("<in t\"");
+	writer.WriteXML(BAGTYPE_ITEM);
+	writer.WriteXML("\">");
+
+	//Loop through the backpack, get items, etc:
+	*/
+
+	//writer.AttachToPacket(ldfData);
+
+
+	ldf->WriteXML(L"xmlData", writer.GetBitStream(), writer.rawData.str().size());
+
+	stream->Write((unsigned long)((ldfData->GetNumberOfBytesUsed() + 8 + 4 + 4)));
+	stream->Write((unsigned char)0);
+	stream->Write(ldf->GetKeyCount());
+	stream->Write(ldfData);
+
+	lwoPacketUtils::savePacket("playerpacket.bin", (char*)stream->GetData(), stream->GetNumberOfBytesUsed());
+	rakServer->Send(stream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+}
 
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle) {
 	unsigned long shirtID = 0;

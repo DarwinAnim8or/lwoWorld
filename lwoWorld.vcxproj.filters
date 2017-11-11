@@ -405,6 +405,12 @@
     <ClInclude Include="Source\lwoUserPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\LDF.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\XMLData.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RakNet\_FindFirst.cpp">
@@ -657,6 +663,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\lwoUserPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\LDF.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\XMLData.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -26,6 +26,12 @@ void lwoPacketUtils::writeStringToPacket(std::string sString, int maxSize, RakNe
 	}
 } //writeStringToPacket
 
+void lwoPacketUtils::writeWStringToPacket(RakNet::BitStream* stream, std::wstring str) {
+	for (uint32_t i = 0; i < str.size(); i++) {
+		stream->Write(static_cast<uint16_t>(str.at(i)));
+	}
+}
+
 int lwoPacketUtils::readInt(int startLoc, int endLoc, Packet* packet) {
 	std::vector<unsigned char> t;
 	for (int i = startLoc; i <= endLoc; i++) t.push_back(packet->data[i]);

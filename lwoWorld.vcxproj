@@ -117,7 +117,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -271,6 +271,7 @@
     <ClInclude Include="RakNet\Types.h" />
     <ClInclude Include="RakNet\_FindFirst.h" />
     <ClInclude Include="Source\Database.h" />
+    <ClInclude Include="Source\LDF.h" />
     <ClInclude Include="Source\lwoPacketHandler.h" />
     <ClInclude Include="Source\lwoPacketIdentifiers.h" />
     <ClInclude Include="Source\lwoUser.h" />
@@ -280,6 +281,7 @@
     <ClInclude Include="Source\Packets\lwoServerPackets.h" />
     <ClInclude Include="Source\Packets\lwoWorldPackets.h" />
     <ClInclude Include="Source\sha256.h" />
+    <ClInclude Include="Source\XMLData.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RakNet\AsynchronousFileIO.cpp" />
@@ -357,6 +359,7 @@
     <ClCompile Include="RakNet\ThreadsafePacketLogger.cpp" />
     <ClCompile Include="RakNet\_FindFirst.cpp" />
     <ClCompile Include="Source\Database.cpp" />
+    <ClCompile Include="Source\LDF.cpp" />
     <ClCompile Include="Source\lwoPacketHandler.cpp" />
     <ClCompile Include="Source\lwoUser.cpp" />
     <ClCompile Include="Source\lwoUserPool.cpp" />
@@ -366,6 +369,7 @@
     <ClCompile Include="Source\Packets\lwoServerPackets.cpp" />
     <ClCompile Include="Source\Packets\lwoWorldPackets.cpp" />
     <ClCompile Include="Source\sha256.cpp" />
+    <ClCompile Include="Source\XMLData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="RakNet\Makefile.am" />

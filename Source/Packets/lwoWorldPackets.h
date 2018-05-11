@@ -9,7 +9,9 @@ namespace lwoWorldPackets {
 	void createNewMinifig(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 	void clientLoginRequest(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 	void sendMinifigureList(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
-	void clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
+	void clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user, ReplicaManager* replicaManager);
+	void positionUpdate(RakPeerInterface* rakServer, Packet* packet, lwoUser* user, ReplicaManager* replicaManager);
+	void handleGameMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 }
 
 enum CharCreatePantsColor : unsigned long {

@@ -4,7 +4,7 @@
 #include "./Packets/lwoWorldPackets.h"
 #include <stdio.h>
 
-void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
+void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool, ReplicaManager* replicaManager) {
 	switch (packet->data[1]) { //First byte determines the connection type.
 	case CONN_SERVER:
 		handleServerConnPackets(rakServer, packet);
@@ -16,7 +16,7 @@ void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet
 		handleChatConnPackets(rakServer, packet, userPool);
 		break;
 	case CONN_WORLD:
-		handleWorldConnPackets(rakServer, packet, userPool);
+		handleWorldConnPackets(rakServer, packet, userPool, replicaManager);
 		break;
 	default:
 		printf("Unknown connection type: %i\n", packet->data[1]);
@@ -62,12 +62,16 @@ void lwoPacketHandler::handleChatConnPackets(RakPeerInterface* rakServer, Packet
 	//TODO
 } //handleServerConnPackets
 
-void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
+void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool, ReplicaManager* replicaManager) {
 	lwoUser* user = userPool->Find(packet->systemAddress); //Doesn't matter if the user doesn't exist yet when first connecting to world.
 
 	switch (packet->data[3]) {
 	case MSG_WORLD_CLIENT_VALIDATION: {
 		lwoWorldPackets::validateClient(rakServer, packet, userPool);
+		break;
+	}
+	case MSG_WORLD_CLIENT_CHARACTER_LIST_REQUEST: {
+		lwoWorldPackets::sendMinifigureList(rakServer, packet, user);
 		break;
 	}
 	case MSG_WORLD_CLIENT_CHARACTER_CREATE_REQUEST: {
@@ -78,20 +82,19 @@ void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packe
 		lwoWorldPackets::clientLoginRequest(rakServer, packet, user);
 		break;
 	}
-	case MSG_WORLD_CLIENT_CHARACTER_LIST_REQUEST: {
-		lwoWorldPackets::sendMinifigureList(rakServer, packet, user);
+	case MSG_WORLD_CLIENT_GAME_MSG: {
+		lwoWorldPackets::handleGameMessage(rakServer, packet, user);
 		break;
 	}
 	case MSG_WORLD_CLIENT_LEVEL_LOAD_COMPLETE: {
-		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user);
+		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user, replicaManager);
 		break;
 	}
 	case MSG_WORLD_CLIENT_POSITION_UPDATE: {
-		//TODO
+		lwoWorldPackets::positionUpdate(rakServer, packet, user, replicaManager);
 		break;
 	}
 	default:
 		printf("Unknown world packet ID: %i\n", packet->data[3]);
-		break;
 	}
 } //handleServerConnPackets

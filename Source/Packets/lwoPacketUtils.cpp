@@ -96,3 +96,29 @@ std::string lwoPacketUtils::WStringToString(const std::wstring& string, int size
 
 	return ret;
 }
+
+unsigned int openPacket(const char* filename, unsigned char** buffer) {
+	FILE* fp = fopen(filename, "rb");
+
+	if (fp) {
+		size_t result;
+		fseek(fp, 0, SEEK_END);
+		long fsize = ftell(fp);
+		rewind(fp);
+		*buffer = new unsigned char[fsize];
+
+		result = fread(*buffer, 1, fsize, fp);
+		if (result != fsize) {
+			printf("Reading error in %s, unable to send packet!\n", filename);
+			delete[] * buffer;
+			fsize = 0;
+		}
+
+		fclose(fp);
+		return fsize;
+	}
+	else {
+		printf("Couldn't open %s for packet reading, unable to send packet!\n", filename);
+		return 0;
+	}
+} //openPacket

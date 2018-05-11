@@ -9,6 +9,14 @@
 #include <conio.h>
 #include <time.h>
 
+//Replica includes:
+#include "ReplicaManager.h"
+#include "NetworkIDManager.h"
+#include "Replica.h"
+#include "ReplicaEnums.h"
+#include "Player.h"
+#include "Monster.h"
+
 //========== Non-lwo includes above =|= lwo includes below ============
 
 #include "lwoPacketIdentifiers.h"
@@ -21,11 +29,79 @@ std::string g_BaseIP = "localhost";
 int g_ourPort;
 int g_ourZone;
 unsigned int g_ourZoneRevision;
+ReplicaManager replicaManager;
+NetworkIDManager networkIDManager;
+
+class ReplicaConstructor : public ReceiveConstructionInterface
+{
+public:
+	ReplicaReturnResult ReceiveConstruction(RakNet::BitStream *inBitStream, RakNetTime timestamp, NetworkID networkID, NetworkIDObject *existingObject, SystemAddress senderId, ReplicaManager *caller)
+	{
+		char output[255];
+			return REPLICA_PROCESSING_DONE;
+
+			//We don't care about anything here
+
+		/*RakNet::StringTable::Instance()->DecodeString(output, 255, inBitStream);
+		if (strcmp(output, "Player") == 0)
+		{
+			assert(player == 0);
+
+			player = new Player;
+			player->SetNetworkIDManager(&networkIDManager);
+			player->SetNetworkID(networkID);
+
+			printf("New player created\n");
+		}
+		else if (strcmp(output, "Monster") == 0)
+		{
+			assert(monster == 0);
+
+			monster = new Monster;
+			monster->replica->SetNetworkIDManager(&networkIDManager);
+			monster->replica->SetNetworkID(networkID);
+
+			printf("New monster created\n");
+		}
+		else
+		{
+			// Unknown string
+			assert(0);
+		}*/
+		return REPLICA_PROCESSING_DONE;
+	}
+} constructionCB;
+
+class ReplicaSender : public  SendDownloadCompleteInterface
+{
+	ReplicaReturnResult SendDownloadComplete(RakNet::BitStream *outBitStream, RakNetTime currentTime, SystemAddress senderId, ReplicaManager *caller)
+	{
+		return REPLICA_PROCESSING_DONE;
+	}
+} sendDownloadCompleteCB;
+
+class ReplicaReceiver : public  ReceiveDownloadCompleteInterface
+{
+	ReplicaReturnResult ReceiveDownloadComplete(RakNet::BitStream *inBitStream, SystemAddress senderId, ReplicaManager *caller)
+	{
+		return REPLICA_PROCESSING_DONE;
+	}
+} receiveDownloadCompleteCB;
 
 int main(int argc, char* argv[]) {
 	RakPeerInterface* rakServer = RakNetworkFactory::GetRakPeerInterface();
+	rakServer->AttachPlugin(&replicaManager);
+	rakServer->SetNetworkIDManager(&networkIDManager);
+
+	replicaManager.SetAutoParticipateNewConnections(true); //Every IP that connects is a player and will need an ID. (internal RM stuffs)
+	replicaManager.SetAutoConstructToNewParticipants(false); //Don't auto-construct, we do this manually once the client has been confirmed
+	replicaManager.SetAutoSerializeInScope(true); //Auto-serialize objects that are in scope
+	replicaManager.SetReceiveConstructionCB(&constructionCB);
+	replicaManager.SetDownloadCompleteCB(&sendDownloadCompleteCB, &receiveDownloadCompleteCB);
+	networkIDManager.SetIsNetworkIDAuthority(true);
+
 	Packet *packet;
-	unsigned int iServerVersion = 130529; //The version the client must have
+	const unsigned int iServerVersion = 130529; //The version the client must have
 	lwoUserPool* userPool = new lwoUserPool;
 	srand(time(NULL));
 
@@ -149,8 +225,8 @@ int main(int argc, char* argv[]) {
 				printf("Our connection request has been accepted.\n");
 				break;
 
-			case ID_USER_PACKET_ENUM:
-				lwoPacketHandler::determinePacketHeader(rakServer, packet, userPool); // really just a "first pass" if you will to see if it's of any use to us.
+			case ID_USER_PACKET_ENUM: //"determinePacketHeader" handles the packet if the header is ok
+				lwoPacketHandler::determinePacketHeader(rakServer, packet, userPool, &replicaManager);
 				break;
 
 			case ID_NEW_INCOMING_CONNECTION:
@@ -159,11 +235,10 @@ int main(int argc, char* argv[]) {
 			case ID_NO_FREE_INCOMING_CONNECTIONS:
 				printf("The server is full.\n");
 				break;
-			case ID_DISCONNECTION_NOTIFICATION:
-					printf("A client has disconnected.\n");
-				break;
-			case ID_CONNECTION_LOST:
-				printf("A client lost the connection.\n");
+			case ID_DISCONNECTION_NOTIFICATION || ID_CONNECTION_LOST:
+				printf("A client has disconnected.\n");
+				userPool->Remove(packet->systemAddress);
+				replicaManager.RemoveParticipant(packet->systemAddress);
 				break;
 			default:
 				printf("Message with identifier %i has arrived.\n", packet->data[0]);

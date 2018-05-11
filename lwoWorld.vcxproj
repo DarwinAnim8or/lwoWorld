@@ -153,6 +153,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Monster.h" />
+    <ClInclude Include="Source\Player.h" />
+    <ClInclude Include="Source\Quaternion.h" />
     <ClInclude Include="RakNet\AsynchronousFileIO.h" />
     <ClInclude Include="RakNet\AutopatcherPatchContext.h" />
     <ClInclude Include="RakNet\AutopatcherRepositoryInterface.h" />
@@ -280,10 +283,15 @@
     <ClInclude Include="Source\Packets\lwoPacketUtils.h" />
     <ClInclude Include="Source\Packets\lwoServerPackets.h" />
     <ClInclude Include="Source\Packets\lwoWorldPackets.h" />
+    <ClInclude Include="Source\ReplicaMember.h" />
     <ClInclude Include="Source\sha256.h" />
     <ClInclude Include="Source\XMLData.h" />
+    <ClInclude Include="Source\Vector3.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Monster.cpp" />
+    <ClCompile Include="Source\Player.cpp" />
+    <ClCompile Include="Source\Quaternion.cpp" />
     <ClCompile Include="RakNet\AsynchronousFileIO.cpp" />
     <ClCompile Include="RakNet\AutoRPC.cpp" />
     <ClCompile Include="RakNet\BitStream.cpp" />
@@ -368,8 +376,10 @@
     <ClCompile Include="Source\Packets\lwoPacketUtils.cpp" />
     <ClCompile Include="Source\Packets\lwoServerPackets.cpp" />
     <ClCompile Include="Source\Packets\lwoWorldPackets.cpp" />
+    <ClCompile Include="Source\ReplicaMember.cpp" />
     <ClCompile Include="Source\sha256.cpp" />
     <ClCompile Include="Source\XMLData.cpp" />
+    <ClCompile Include="Source\Vector3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="RakNet\Makefile.am" />

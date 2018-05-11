@@ -411,6 +411,21 @@
     <ClInclude Include="Source\XMLData.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Vector3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Quaternion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\ReplicaMember.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Player.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Monster.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RakNet\_FindFirst.cpp">
@@ -669,6 +684,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\XMLData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Vector3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Quaternion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\ReplicaMember.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Player.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Monster.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

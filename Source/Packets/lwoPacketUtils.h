@@ -12,4 +12,5 @@ namespace lwoPacketUtils {
 	bool savePacket(const std::string& sFileName, const char* cData, int iLength);
 	std::wstring StringToWString(const std::string& string, int size);
 	std::string WStringToString(const std::wstring& string, int size);
+	unsigned int openPacket(const char* filename, unsigned char** buffer);
 }

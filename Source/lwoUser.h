@@ -2,6 +2,7 @@
 
 #include <string>
 #include "RakPeerInterface.h"
+#include "Player.h"
 
 class lwoUser {
 public:
@@ -26,7 +27,7 @@ public:
 		return m_address;
 	}
 
-	int numOfChars() {
+	int numOfChars() const {
 		return m_numOfChars;
 	}
 
@@ -34,10 +35,23 @@ public:
 		m_numOfChars = newNumOfChars;
 	}
 
+	Player* getPlayer() {
+		return m_player;
+	}
+
+	Player* createPlayer() {
+		m_player = new Player();
+	}
+
+	void destroyPlayer() {
+		delete m_player;
+		m_player = nullptr;
+	}
+
 private:
 	unsigned __int64 m_userID;
 	std::string m_username;
 	SystemAddress m_address;
 	int m_numOfChars = 0;
+	Player* m_player;
 };
-

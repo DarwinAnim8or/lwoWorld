@@ -2,6 +2,7 @@
 #include "lwoPacketUtils.h"
 #include "../LDF.h"
 #include "../XMLData.h"
+#include "ReplicaManager.h"
 
 #include <iostream>
 #include <fstream>
@@ -15,7 +16,7 @@
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle);
 unsigned long FindCharPantsID(unsigned long pantsColor);
 void ConstructObject(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring name, unsigned long LOT);
-void CreatePlayer(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName);
+void SendCharData(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName);
 
 extern std::string g_BaseIP;
 extern int g_ourPort;
@@ -278,15 +279,22 @@ void lwoWorldPackets::sendMinifigureList(RakPeerInterface* rakServer, Packet* pa
 	lwoPacketUtils::savePacket("charList.bin", (char*)bitStream.GetData(), bitStream.GetNumberOfBytesUsed());
 } //sendMinifigureList
 
-void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
+void testSendCharEndMarker(RakPeerInterface* rakServer, Packet* packet)
+{
+	RakNet::BitStream bitStream;
+	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, 62, &bitStream);
+	bool bIsServerOnline = true;
+	bitStream.Write((unsigned char)bIsServerOnline);
+	rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+}
+
+void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user, ReplicaManager* replicaManager) {
 	RakNet::BitStream inStream(packet->data, packet->length, false);
 	unsigned long long header = inStream.Read(header); //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
 	unsigned short usZoneID = inStream.Read(usZoneID);
 	unsigned short usInstanceID = inStream.Read(usInstanceID);
 	unsigned int uiMapClone = inStream.Read(uiMapClone);
 	std::cout << "User " << user->Username() << " is done loading the zone, so send charData. (" << usZoneID << ":" << usInstanceID << ":" << uiMapClone << ")" << std::endl;
-
-	//TODO: Generate and send the character data (charData) now. 
 
 	//Get the objectID:
 	__int64 objectID;
@@ -309,9 +317,446 @@ void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet
 	else nameToUse = lwoPacketUtils::StringToWString(tempName, tempName.size());
 
 	std::cout << "Creating player " << lwoPacketUtils::WStringToString(nameToUse, nameToUse.size()) << ":" << objectID << std::endl;
-	CreatePlayer(rakServer, packet, objectID, nameToUse);
-	ConstructObject(rakServer, packet, objectID, nameToUse, 1);
+	SendCharData(rakServer, packet, objectID, nameToUse);
+
+	Player* playerObj = new Player{};
+	playerObj->objectName = nameToUse;
+	playerObj->objectID = objectID;
+	playerObj->position = Vector3{ -629.0f, 613.4f, -30.0f };
+
+	testSendCharEndMarker(rakServer, packet);
+	//ConstructObject(rakServer, packet, objectID, nameToUse, 1);
+	replicaManager->Construct(playerObj, false, packet->systemAddress, false);
 } //clientSideLoadComplete
+
+void lwoWorldPackets::positionUpdate(RakPeerInterface * rakServer, Packet * packet, lwoUser * user, ReplicaManager * replicaManager) {
+	/*
+		[L:4] - player pos x, float
+		[L:4] - player pos y, float
+		[L:4] - player pos z, float
+		[L:4] - player rotation x (or z), float
+		[L:4] - player rotation y, float
+		[L:4] - player rotation z (or x), float
+		[L:4] - player rotation w, float
+		[L:BIT1] - is player on ground, bool
+		[L:BIT1] - ???
+		[L:BIT1] - flag
+			[L:4] - velocity x, float
+			[L:4] - velocity y, float
+			[L:4] - velocity z, float
+		[L:BIT1] - flag
+			[L:4] - angular velocity x, float
+			[L:4] - angular velocity y, float
+			[L:4] - angular velocity z, float
+		[L:BIT1] - flag
+			[L:8] - ???, seemed like an object id in the 53-04-00-16 captures
+			[L:4] - ???, float
+			[L:4] - ???, float
+			[L:4] - ???, float
+			[L:BIT1] - flag
+				[L:4] - ???, float
+				[L:4] - ???, float
+				[L:4] - ???, float
+	*/
+
+	RakNet::BitStream inStream(packet->data, packet->length, false);
+	unsigned long long header = inStream.Read(header); //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
+	Vector3 position{ 0.0f, 0.0f, 0.0f };
+	Quaternion rotation{ 0.0f, 0.0f, 0.0f, 0.0f };
+	Vector3 velocity{ 0.0f, 0.0f, 0.0f };
+	Vector3 angVelocity{ 0.0f, 0.0f, 0.0f };
+	
+	position.x = inStream.Read(position.x);
+	position.y = inStream.Read(position.x);
+	position.z = inStream.Read(position.z);
+	rotation.x = inStream.Read(rotation.x);
+	rotation.y = inStream.Read(rotation.y);
+	rotation.z = inStream.Read(rotation.z);
+	rotation.w = inStream.Read(rotation.w);
+
+	bool bIsOnGround = inStream.Read(bIsOnGround);
+	bool bUnknown = inStream.Read(bUnknown);
+	bool bHasVelocityUpdate = inStream.Read(bHasVelocityUpdate);
+
+	if (bHasVelocityUpdate) {
+		velocity.x = inStream.Read(velocity.x);
+		velocity.y = inStream.Read(velocity.y);
+		velocity.z = inStream.Read(velocity.z);
+	}
+
+	bool bHasAngularVelocityUpdate = inStream.Read(bHasAngularVelocityUpdate);
+
+	if (bHasAngularVelocityUpdate) {
+		angVelocity.x = inStream.Read(angVelocity.x);
+		angVelocity.y = inStream.Read(angVelocity.y);
+		angVelocity.z = inStream.Read(angVelocity.z);
+	}
+
+	//Apply them:
+	if (user->getPlayer() != nullptr) {
+		printf("Applied pos update\n");
+		user->getPlayer()->position = position;
+		user->getPlayer()->rotation = rotation;
+		user->getPlayer()->bIsOnGround = bIsOnGround;
+
+		if (bHasVelocityUpdate) user->getPlayer()->velocity = velocity;
+		if (bHasAngularVelocityUpdate) user->getPlayer()->angularVelocity = angVelocity;
+	}
+}
+
+class AddItemToInventory {
+	static const unsigned short MsgID = 225;
+
+public:
+	AddItemToInventory() {
+		bBound = false;
+		bBuyback = false;
+		bMailItemsIfInvFull = false;
+		eLootTypeSource = 0;
+		iLootTypeSourceID = 0;
+		iSubkey = 0;
+		invType = 0;
+		itemCount = 1;
+		itemsTotal = 0;
+		showFlyingLoot = true;
+	}
+
+	AddItemToInventory(unsigned int _extraInfo, unsigned long long _iObjID, unsigned int _iObjTemplate, Vector3 _ni3FlyingLootPosit, unsigned long long _outDestObjID, bool _wasAdded, bool _bBound = false, bool _bBuyback = false, bool _bMailItemsIfInvFull = false, int _eLootTypeSource = 0, unsigned long long _iLootTypeSourceID = 0, unsigned long long _iSubkey = 0, int _invType = 0, unsigned int _itemCount = 1, unsigned int _itemsTotal = 0, bool _showFlyingLoot = true) {
+		bBound = _bBound;
+		bBuyback = _bBuyback;
+		bMailItemsIfInvFull = _bMailItemsIfInvFull;
+		eLootTypeSource = _eLootTypeSource;
+		extraInfo = _extraInfo;
+		iLootTypeSourceID = _iLootTypeSourceID;
+		iObjID = _iObjID;
+		iObjTemplate = _iObjTemplate;
+		iSubkey = _iSubkey;
+		invType = _invType;
+		itemCount = _itemCount;
+		itemsTotal = _itemsTotal;
+		ni3FlyingLootPosit = _ni3FlyingLootPosit;
+		outDestObjID = _outDestObjID;
+		showFlyingLoot = _showFlyingLoot;
+		wasAdded = _wasAdded;
+	}
+
+	AddItemToInventory(RakNet::BitStream* stream) {
+		bBound = false;
+		bBuyback = false;
+		bMailItemsIfInvFull = false;
+		eLootTypeSource = 0;
+		iLootTypeSourceID = 0;
+		iSubkey = 0;
+		invType = 0;
+		itemCount = 1;
+		itemsTotal = 0;
+		showFlyingLoot = true;
+
+		Deserialize(stream);
+	}
+
+	~AddItemToInventory() {
+	}
+
+	void Serialize(RakNet::BitStream* stream) {
+		stream->Write((unsigned short)MsgID);
+
+		stream->Write(bBound);
+		stream->Write(bBuyback);
+		stream->Write(bMailItemsIfInvFull);
+
+		stream->Write(eLootTypeSource != 0);
+		if (eLootTypeSource != 0) stream->Write(eLootTypeSource);
+
+		stream->Write(extraInfo);
+
+		stream->Write(iLootTypeSourceID != 0);
+		if (iLootTypeSourceID != 0) stream->Write(iLootTypeSourceID);
+
+		stream->Write(iObjID);
+		stream->Write(iObjTemplate);
+
+		stream->Write(iSubkey != 0);
+		if (iSubkey != 0) stream->Write(iSubkey);
+
+		stream->Write(invType != 0);
+		if (invType != 0) stream->Write(invType);
+
+		stream->Write(itemCount != 1);
+		if (itemCount != 1) stream->Write(itemCount);
+
+		stream->Write(itemsTotal != 0);
+		if (itemsTotal != 0) stream->Write(itemsTotal);
+
+		stream->Write(ni3FlyingLootPosit);
+		stream->Write(outDestObjID);
+		stream->Write(showFlyingLoot);
+		stream->Write(wasAdded);
+	}
+
+	bool Deserialize(RakNet::BitStream* stream) {
+		stream->Read(bBound);
+		stream->Read(bBuyback);
+		stream->Read(bMailItemsIfInvFull);
+
+		bool eLootTypeSourceIsDefault;
+		stream->Read(eLootTypeSourceIsDefault);
+		if (eLootTypeSourceIsDefault != 0) stream->Read(eLootTypeSource);
+
+		stream->Read(extraInfo);
+
+		bool iLootTypeSourceIDIsDefault;
+		stream->Read(iLootTypeSourceIDIsDefault);
+		if (iLootTypeSourceIDIsDefault != 0) stream->Read(iLootTypeSourceID);
+
+		stream->Read(iObjID);
+		stream->Read(iObjTemplate);
+
+		bool iSubkeyIsDefault;
+		stream->Read(iSubkeyIsDefault);
+		if (iSubkeyIsDefault != 0) stream->Read(iSubkey);
+
+		bool invTypeIsDefault;
+		stream->Read(invTypeIsDefault);
+		if (invTypeIsDefault != 0) stream->Read(invType);
+
+		bool itemCountIsDefault;
+		stream->Read(itemCountIsDefault);
+		if (itemCountIsDefault != 0) stream->Read(itemCount);
+
+		bool itemsTotalIsDefault;
+		stream->Read(itemsTotalIsDefault);
+		if (itemsTotalIsDefault != 0) stream->Read(itemsTotal);
+
+		stream->Read(ni3FlyingLootPosit);
+		stream->Read(outDestObjID);
+		stream->Read(showFlyingLoot);
+		stream->Read(wasAdded);
+
+		return true;
+	}
+
+	bool bBound;
+	bool bBuyback;
+	bool bMailItemsIfInvFull;
+	int eLootTypeSource;
+	unsigned int extraInfo;
+	unsigned long long iLootTypeSourceID;
+	unsigned long long iObjID;
+	unsigned int iObjTemplate;
+	unsigned long long iSubkey;
+	int invType;
+	unsigned int itemCount;
+	unsigned int itemsTotal;
+	Vector3 ni3FlyingLootPosit;
+	unsigned long long outDestObjID;
+	bool showFlyingLoot;
+	bool wasAdded;
+};
+
+/*
+class AddItemToInventoryClientSync {
+	static const GAME_MSG MsgID = 227;
+
+public:
+	AddItemToInventoryClientSync() {
+		eLootTypeSource = LOOTTYPE_NONE;
+		iSubkey = LWOOBJID_EMPTY;
+		invType = INVENTORY_DEFAULT;
+		itemCount = 1;
+		itemsTotal = 0;
+		showFlyingLoot = true;
+	}
+
+	AddItemToInventoryClientSync(bool _bBound, bool _bIsBOE, bool _bIsBOP, LwoNameValue _extraInfo, LOT _iObjTemplate, LWOOBJID _newObjID, NiPoint3 _ni3FlyingLootPosit, int _slotID, int _eLootTypeSource = LOOTTYPE_NONE, LWOOBJID _iSubkey = LWOOBJID_EMPTY, int _invType = INVENTORY_DEFAULT, unsigned int _itemCount = 1, unsigned int _itemsTotal = 0, bool _showFlyingLoot = true) {
+		bBound = _bBound;
+		bIsBOE = _bIsBOE;
+		bIsBOP = _bIsBOP;
+		eLootTypeSource = _eLootTypeSource;
+		extraInfo = _extraInfo;
+		iObjTemplate = _iObjTemplate;
+		iSubkey = _iSubkey;
+		invType = _invType;
+		itemCount = _itemCount;
+		itemsTotal = _itemsTotal;
+		newObjID = _newObjID;
+		ni3FlyingLootPosit = _ni3FlyingLootPosit;
+		showFlyingLoot = _showFlyingLoot;
+		slotID = _slotID;
+	}
+
+	AddItemToInventoryClientSync(RakNet::BitStream* stream) {
+		eLootTypeSource = LOOTTYPE_NONE;
+		iSubkey = LWOOBJID_EMPTY;
+		invType = INVENTORY_DEFAULT;
+		itemCount = 1;
+		itemsTotal = 0;
+		showFlyingLoot = true;
+
+		Deserialize(stream);
+	}
+
+	~AddItemToInventoryClientSync() {
+	}
+
+	void Serialize(RakNet::BitStream* stream) {
+		stream->Write((unsigned short)MsgID);
+
+		cout << endl;
+
+		stream->Write(bBound);
+		stream->Write(bIsBOE);
+		stream->Write(bIsBOP);
+
+		stream->Write(eLootTypeSource != LOOTTYPE_NONE);
+		if (eLootTypeSource != LOOTTYPE_NONE) stream->Write(eLootTypeSource);
+
+		//stream->Write(extraInfo.length);
+		//stream->Write((char*)extraInfo.name.data(), sizeof(wchar_t) * extraInfo.name.size());
+		wcout << L"AddItemToInventoryClientSync extraInfo: " << extraInfo.name << L"\n";
+		stream->Write(extraInfo.length);
+		if (extraInfo.length > 0) {
+			for (int i = 0; i < extraInfo.length; i++) {
+				wcout << L"-> Writing character: " << extraInfo.name[i] << L"\n";
+				stream->Write(extraInfo.name[i]);
+			}
+			stream->Write((short)0);
+		}
+
+		stream->Write(iObjTemplate);
+		cout << "AddItemToInventoryClientSycn iObjTemplate: " << iObjTemplate << endl;
+		cout << endl;
+
+		stream->Write(iSubkey != LWOOBJID_EMPTY);
+		if (iSubkey != LWOOBJID_EMPTY) stream->Write(iSubkey);
+
+		stream->Write(invType != INVENTORY_DEFAULT);
+		if (invType != INVENTORY_DEFAULT) stream->Write(invType);
+
+		stream->Write(itemCount != 1);
+		if (itemCount != 1) stream->Write(itemCount);
+
+		stream->Write(itemsTotal != 0);
+		if (itemsTotal != 0) stream->Write(itemsTotal);
+
+		stream->Write(newObjID);
+		stream->Write(ni3FlyingLootPosit);
+		stream->Write(showFlyingLoot);
+		stream->Write(slotID);
+	}
+
+	bool Deserialize(RakNet::BitStream* stream) {
+		stream->Read(bBound);
+		stream->Read(bIsBOE);
+		stream->Read(bIsBOP);
+
+		bool eLootTypeSourceIsDefault;
+		stream->Read(eLootTypeSourceIsDefault);
+		if (eLootTypeSourceIsDefault != 0) stream->Read(eLootTypeSource);
+
+		stream->Read(extraInfo);
+		stream->Read(iObjTemplate);
+
+		bool iSubkeyIsDefault;
+		stream->Read(iSubkeyIsDefault);
+		if (iSubkeyIsDefault != 0) stream->Read(iSubkey);
+
+		bool invTypeIsDefault;
+		stream->Read(invTypeIsDefault);
+		if (invTypeIsDefault != 0) stream->Read(invType);
+
+		bool itemCountIsDefault;
+		stream->Read(itemCountIsDefault);
+		if (itemCountIsDefault != 0) stream->Read(itemCount);
+
+		bool itemsTotalIsDefault;
+		stream->Read(itemsTotalIsDefault);
+		if (itemsTotalIsDefault != 0) stream->Read(itemsTotal);
+
+		stream->Read(newObjID);
+		stream->Read(ni3FlyingLootPosit);
+		stream->Read(showFlyingLoot);
+		stream->Read(slotID);
+
+		return true;
+	}
+
+	bool bBound;
+	bool bIsBOE;
+	bool bIsBOP;
+	int eLootTypeSource;
+	LwoNameValue extraInfo;
+	LOT iObjTemplate;
+	LWOOBJID iSubkey;
+	int invType;
+	unsigned int itemCount;
+	unsigned int itemsTotal;
+	LWOOBJID newObjID;
+	NiPoint3 ni3FlyingLootPosit;
+	bool showFlyingLoot;
+	int slotID;
+};*/
+
+void lwoWorldPackets::handleGameMessage(RakPeerInterface * rakServer, Packet * packet, lwoUser * user) {
+	RakNet::BitStream inStream(packet->data, packet->length, false);
+	lwoPacketUtils::savePacket("handleGameMessage.bin", (char*)inStream.GetData(), inStream.GetNumberOfBytesUsed());
+
+	unsigned long long header = inStream.Read(header); //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
+	unsigned long long objectID;
+	unsigned short messageID;
+
+	//inStream.Read(objectID);
+	inStream.Read(messageID);
+	std::cout << " sent us GM: " << messageID << std::endl;
+
+	RakNet::BitStream bitStream;
+	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_GAME_MSG, &bitStream);
+
+	switch (messageID) {
+	case GAME_MSG_INVENTORY_SYNCH: {
+		for (int i{}; i < 999; i++) {
+			bitStream.Write((unsigned short)227);
+			//std::cout << "Sending MSG " << 4 + i << std::endl;
+			float x = 0.0f;
+			float y = 0.0f;
+			float z = 0.0f;
+			bool showFlyingLoot = true;
+			int eLootTypeSource = 0;
+			int iObjTemplate = 1727; //LOT
+			unsigned long long iSubKey = 0;
+			int slotID = 0;
+			unsigned long long newObjID = 1;
+			int invType = 0;
+			unsigned int itemCount = 0;
+			unsigned int itemsTotal = 1;
+			bool bIsBOE = false;
+			bool bIsBOP = false;
+			bool bBound = false;
+			unsigned int extraInfoLength = 0;
+			wstring wsExtraInfo(L"");
+
+			bitStream.Write(bBound);
+			bitStream.Write(bIsBOE);
+			bitStream.Write(bIsBOP);
+			bitStream.Write(false);
+			bitStream.Write(extraInfoLength);
+			bitStream.Write(iObjTemplate);
+			bitStream.Write(false); //iSubKey
+			bitStream.Write(false); //InventoryType
+			bitStream.Write(false); //ItemCount
+			bitStream.Write(false); //itemTotal
+			bitStream.Write(newObjID);
+			bitStream.Write(x);
+			bitStream.Write(y);
+			bitStream.Write(z);
+			bitStream.Write(showFlyingLoot);
+			bitStream.Write(slotID);
+			rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+		}
+		break;
+	}
+	}
+} //handleGameMessage
 
 void ConstructObject(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring name, unsigned long LOT) {
 	//WARNING, DO NOT USE! This is a temporary function Matt made to test out world loading. 
@@ -334,11 +779,11 @@ void ConstructObject(RakPeerInterface* rakServer, Packet* packet, unsigned long 
 	rakServer->Send(stream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
 }
 
-void CreatePlayer(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName) {
-	RakNet::BitStream* stream = new RakNet::BitStream();;
+void SendCharData(RakPeerInterface* rakServer, Packet* packet, unsigned long long objectID, std::wstring playerName) {
+	RakNet::BitStream* stream = new RakNet::BitStream();
 	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_CREATE_CHARACTER, stream);
 
-	RakNet::BitStream* ldfData = new RakNet::BitStream();;
+	RakNet::BitStream* ldfData = new RakNet::BitStream();
 	LDF* ldf = new LDF();
 
 	ldf->SetBitStream(ldfData);
@@ -347,56 +792,19 @@ void CreatePlayer(RakPeerInterface* rakServer, Packet* packet, unsigned long lon
 	ldf->WriteOBJID(L"objid", objectID);
 	ldf->WriteS32(L"template", 1);
 	ldf->WriteBool(L"editor_enabled", true);
-	ldf->WriteS32(L"editor_level", 1);
+	ldf->WriteS32(L"editor_level", 9);
 	ldf->WriteS32(L"gmlevel", 9);
 	ldf->WriteWString(L"name", playerName);
-
-	RakNet::BitStream* xmlData = new RakNet::BitStream();;
-	XMLDataWriter writer(xmlData);
-	writer.WriteXML("<obj v=\"1\">");
-	//writer.WriteXML("<mf hc=\"3\" hs=\"6\" hd=\"0\" t=\"4582\" l=\"2515\" hdc=\"0\" cd=\"24\" lh=\"31239184\" rh=\"30791876\" es=\"8\" ess=\"15\" ms=\"26\"/>");
-	//writer.WriteXML("<char acct=\"1\" cc=\"160\" gm=\"9\">");
-	//writer.WriteXML("<vl><l id=\"1100\" cid=\"0\"/></vl>");
-	//writer.WriteXML("<zs><s map=\"1100\" qbc=\"6\" cc=\"205\" bc=\"38\" ac=\"5\"/></zs>");
-	//writer.WriteXML("</char>");
-	//writer.WriteXML("<flag></flag>");
-
-	//writer.WriteXML("<dest hm=\"4\" hc=\"4\" im=\"6\" ic=\"6\" am=\"0\" ac=\"0\" d=\"0\"/>");
-
-	/*writer.WriteXML("<inv>");
-	writer.WriteXML("<bag>");
-	writer.WriteXML("<b t=\"0\" m=\"");
-	writer.WriteXML("24");
-	writer.WriteXML("\"/>");
-	writer.WriteXML("</bag>");
-	writer.WriteXML("</inv>");*/
-
-	writer.WriteXML("<inv><bag><b t=\"0\" m=\"20\"/><b t=\"1\" m=\"240\"/><b t=\"2\" m=\"240\"/><b t=\"3\" m=\"240\"/></bag><items><in t=\"0\"><i l=\"2515\" id=\"3027\" s=\"1\"/><i l=\"4582\" id=\"3026\" s=\"0\"/></in><in t=\"5\"><i l=\"14454\" id=\"3034\" s=\"5\" eq=\"0\" c=\"3\"/><i l=\"4713\" id=\"3033\" s=\"4\" eq=\"0\"/><i l=\"14455\" id=\"3032\" s=\"3\" eq=\"0\"/><i l=\"14445\" id=\"3031\" s=\"2\" eq=\"0\"/><i l=\"4714\" id=\"3028\" s=\"1\" eq=\"0\"/></in><in t=\"2\"></in><in t=\"7\"></in></items></inv>");
-
-	writer.WriteXML("</obj>");
-
-	//writer.WriteXML("<in/>")
-	/*
-
-	writer.WriteXML("<items>");
-	writer.WriteXML("<in t\"");
-	writer.WriteXML(BAGTYPE_ITEM);
-	writer.WriteXML("\">");
-
-	//Loop through the backpack, get items, etc:
-	*/
-
-	//writer.AttachToPacket(ldfData);
-
-
-	ldf->WriteXML(L"xmlData", writer.GetBitStream(), writer.rawData.str().size());
+	ldf->WriteFloat(L"position.x", -629.0f);
+	ldf->WriteFloat(L"position.y", 613.4f);
+	ldf->WriteFloat(L"position.z", -30.0f);
 
 	stream->Write((unsigned long)((ldfData->GetNumberOfBytesUsed() + 8 + 4 + 4)));
 	stream->Write((unsigned char)0);
 	stream->Write(ldf->GetKeyCount());
 	stream->Write(ldfData);
 
-	lwoPacketUtils::savePacket("playerpacket.bin", (char*)stream->GetData(), stream->GetNumberOfBytesUsed());
+	lwoPacketUtils::savePacket("SendCharData.bin", (char*)stream->GetData(), stream->GetNumberOfBytesUsed());
 	rakServer->Send(stream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
 }
 

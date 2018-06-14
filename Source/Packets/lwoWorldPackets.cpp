@@ -323,10 +323,11 @@ void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet
 	playerObj->objectName = nameToUse;
 	playerObj->objectID = objectID;
 	playerObj->position = Vector3{ -629.0f, 613.4f, -30.0f };
+	playerObj->gmLevel = 9; //temp
 
 	testSendCharEndMarker(rakServer, packet);
 	//ConstructObject(rakServer, packet, objectID, nameToUse, 1);
-	replicaManager->Construct(playerObj, false, packet->systemAddress, false);
+	replicaManager->Construct(playerObj, false, UNASSIGNED_SYSTEM_ADDRESS, true);
 } //clientSideLoadComplete
 
 void lwoWorldPackets::positionUpdate(RakPeerInterface * rakServer, Packet * packet, lwoUser * user, ReplicaManager * replicaManager) {
@@ -751,7 +752,7 @@ void lwoWorldPackets::handleGameMessage(RakPeerInterface * rakServer, Packet * p
 			bitStream.Write(z);
 			bitStream.Write(showFlyingLoot);
 			bitStream.Write(slotID);
-			rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
+			//rakServer->Send(&bitStream, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, packet->systemAddress, false);
 		}
 		break;
 	}

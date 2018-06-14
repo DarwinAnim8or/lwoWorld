@@ -43,10 +43,34 @@ ReplicaReturnResult Player::SendConstruction( RakNetTime currentTime, SystemAddr
 
 	printf("Sending player to %i:%i\n", systemAddress.binaryAddress, systemAddress.port);
 
+	outBitStream->Write(true);
+	outBitStream->Write((short)0);
+	outBitStream->Write(objectID);
+	outBitStream->Write((long)templateID);
+
+	outBitStream->Write((char)objectName.size());
+	lwoPacketUtils::writeWStringToPacket(outBitStream, objectName);
+
+	//From Matt, somehow works? 
+	/*for (int i = 0; i < 50; i++) {
+		outBitStream->Write((short)0);
+	}*/
+
+	outBitStream->Write(true);
+	outBitStream->Write((short)0);
 	outBitStream->Write(objectID);
 	outBitStream->Write(templateID);
-	outBitStream->Write(unsigned int(objectName.length()));
+	outBitStream->Write(unsigned char(objectName.length()));
 	lwoPacketUtils::writeWStringToPacket(outBitStream, objectName);
+	outBitStream->Write(unsigned int(0));
+	outBitStream->Write(false); //extraData?
+	outBitStream->Write(false); //trigger_id (is trigger or not)
+	outBitStream->Write(false); //has spawner ID
+	outBitStream->Write(false); //has spawner node ID
+	outBitStream->Write(false); //?? float
+	outBitStream->Write(false); //objectWorldState
+	outBitStream->Write(true);
+	outBitStream->Write(gmLevel);
 
 	/*
 		[L:4] - player pos x, float
@@ -77,6 +101,14 @@ ReplicaReturnResult Player::SendConstruction( RakNetTime currentTime, SystemAddr
 				[L:4] - ???, float
 	*/
 
+	outBitStream->Write(false);
+	outBitStream->Write(false);
+
+	outBitStream->Write(false);
+	outBitStream->Write(false);
+	outBitStream->Write(false);
+
+	outBitStream->Write(true); //including ControllablePhysics
 	outBitStream->Write(position.x);
 	outBitStream->Write(position.y);
 	outBitStream->Write(position.z);

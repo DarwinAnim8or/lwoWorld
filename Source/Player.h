@@ -38,6 +38,7 @@ public:
 	unsigned long long objectID;
 	unsigned int templateID = 1;
 	std::wstring objectName = L"";
+	unsigned int gmLevel;
 
 	Vector3 position;
 	Quaternion rotation;

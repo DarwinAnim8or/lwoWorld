@@ -4,6 +4,36 @@
 #include <sstream>
 #include <vector>
 
+void lwoPacketUtils::ServerSendPacket(RakPeerInterface* rakServer, char* data, unsigned int len, const SystemAddress& address)
+{
+	if (len > 0)
+		rakServer->Send(data, len, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, address, false);
+}
+
+void lwoPacketUtils::ServerSendPacket(RakPeerInterface* rakServer, const std::vector<unsigned char>& msg, const SystemAddress& address) {
+	ServerSendPacket(rakServer, (char*)msg.data(), msg.size(), address);
+}
+
+std::string lwoPacketUtils::RawDataToString(unsigned char* data, unsigned int size, bool onlyraw) {
+	// Initialize the ostringstream buffer
+	std::ostringstream buffer;
+
+	// If onlyraw is false, print "Data in bytes: "
+	if (!onlyraw) buffer << "Data in bytes: ";
+
+	// Copy the data into the stringstream
+	for (unsigned int i = 0; i < size; i++) {
+		if (!onlyraw) if (i % 16 == 0) buffer << "\n\t\t";
+		else if (!onlyraw) buffer << " ";
+		buffer << std::setw(2) << std::hex << std::setfill('0') << (int)data[i];
+	}
+
+	if (!onlyraw) buffer << "\n\n";
+
+	// Return the stringstream as a std::string
+	return buffer.str();
+}
+
 void lwoPacketUtils::createPacketHeader(unsigned char uPacketID, unsigned short sConnectionType, unsigned int iInternalPacketID, RakNet::BitStream* bitStream) {
 	bitStream->Write((unsigned char)uPacketID);
 	bitStream->Write(sConnectionType);

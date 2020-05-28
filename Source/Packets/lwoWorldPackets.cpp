@@ -1,5 +1,6 @@
 #include "lwoWorldPackets.h"
 #include "lwoPacketUtils.h"
+#include "lwoGameMessages.h"
 
 #include <iostream>
 #include <fstream>
@@ -40,10 +41,10 @@ void lwoWorldPackets::validateClient(RakPeerInterface* rakServer, Packet* packet
 	if (g_ourPort != 2002) { //if not running as char, send TransferToZone/LoadStaticZone:
 		RakNet::BitStream bitStream;
 		lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_LOAD_STATIC_ZONE, &bitStream);
-		bitStream.Write(unsigned short(g_ourZone));
+		bitStream.Write(unsigned short(1100)); //bitStream.Write(unsigned short(g_ourZone));
 		bitStream.Write(unsigned short(0)); //instance
 		bitStream.Write(unsigned int(0)); //clone
-		bitStream.Write(unsigned int(g_ourZoneRevision)); 
+		bitStream.Write(unsigned int(3798)); //bitStream.Write(unsigned int(g_ourZoneRevision)); 
 		bitStream.Write(unsigned short(0)); //???
 		bitStream.Write(float(0));
 		bitStream.Write(float(0));
@@ -327,6 +328,47 @@ void lwoWorldPackets::handleChatMessage(RakPeerInterface* rakServer, Packet* pac
 
 	std::wstring message(msgVector.begin(), msgVector.end());
 	std::string wstr(message.begin(), message.end());
+}
+
+void lwoWorldPackets::handleGameMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user)
+{
+	/*
+	* Note: for some reason commands starting with "/" are game messages, which
+	* you wouldn't think is weird except for the fact that, additionally, every
+	* single chat message is a game message, as well as a MSG_WORLD_CLIENT_GENERAL_CHAT_MESSAGE
+	* packet.
+	*/
+
+	RakNet::BitStream packetStream(packet->data, packet->length, false);
+	unsigned long long header; //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
+	unsigned long messageLength; //The amount of bytes the entire packet is after the objectID
+	unsigned long long objID; //LWOOBJID
+	unsigned short msgID; //Game message ID
+
+	packetStream.Read(header);
+	packetStream.Read(messageLength);
+	packetStream.Read(msgID);
+	packetStream.Read(objID);
+
+	switch (msgID) {
+		case GameMessageIDs::GAME_MSG_CHAT_COMMAND: {
+			unsigned long padding;
+			unsigned long chatMessageLength = 0;
+
+			packetStream.Read(padding);
+			packetStream.Read(chatMessageLength);
+			vector<wchar_t> msgVector;
+			msgVector.reserve(chatMessageLength);
+			for (unsigned long k = 0; k < chatMessageLength; k++) {
+				wchar_t mchr = packetStream.Read(mchr);
+				msgVector.push_back(mchr);
+			}
+			break;
+		}
+		default: {
+			break;
+		}
+	}
 }
 
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle) {

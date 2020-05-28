@@ -88,8 +88,16 @@ void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packe
 		break;
 	}
 	case MSG_WORLD_CLIENT_GENERAL_CHAT_MESSAGE: {
+		//Does not contain "/" commands
 		lwoWorldPackets::handleChatMessage(rakServer, packet, user);
-		std::cout << lwoPacketUtils::RawDataToString(packet->data, packet->length, false);
+		break;
+	}
+	case MSG_WORLD_CLIENT_GAME_MSG: {
+		lwoWorldPackets::handleGameMessage(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_POSITION_UPDATE: {
+		//Broadcast packet to rest of users
 		break;
 	}
 	default:

@@ -274,6 +274,22 @@ void lwoWorldPackets::sendMinifigureList(RakPeerInterface* rakServer, Packet* pa
 	lwoPacketUtils::savePacket("charList.bin", (char*)bitStream.GetData(), bitStream.GetNumberOfBytesUsed());
 } //sendMinifigureList
 
+vector<unsigned char> OpenPacket(const string& filename) {
+	ifstream file(filename, ios::in | ios::binary | ios::ate);
+	if (file.is_open()) {
+		streamoff fsz = file.tellg();
+		vector<unsigned char> r((unsigned int)fsz);
+		file.seekg(0, ios::beg);
+
+		file.read((char*)r.data(), fsz);
+
+		file.close();
+
+		return r;
+	}
+	return vector<unsigned char>(0);
+}
+
 void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
 	RakNet::BitStream inStream(packet->data, packet->length, false);
 	unsigned long long header = inStream.Read(header); //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
@@ -282,8 +298,36 @@ void lwoWorldPackets::clientSideLoadComplete(RakPeerInterface* rakServer, Packet
 	unsigned int uiMapClone = inStream.Read(uiMapClone);
 	std::cout << "User " << user->Username() << " is done loading the zone, so send charData. (" << usZoneID << ":" << usInstanceID << ":" << uiMapClone << ")" << std::endl;
 
-	//TODO: Generate and send the character data (charData) now. 
+	//Temporary fix
+	for (unsigned int i = 1; i < 6; i++) {
+		auto charData = OpenPacket(std::to_string(i) + ".bin");
+		lwoPacketUtils::ServerSendPacket(rakServer, charData, packet->systemAddress);
+	}
 } //clientSideLoadComplete
+
+void lwoWorldPackets::handleChatMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user) {
+	//Read chat message data
+	RakNet::BitStream packetStream(packet->data, packet->length, false);
+	unsigned long long header; //Skips ahead 8 bytes, SetReadOffset doesn't work for some reason.
+	unsigned char channelID; //This is typically 0x04 for public channels
+	unsigned short unknown; //Unknown
+	unsigned long messageLength; //Length of the message
+
+	packetStream.Read(header);
+	packetStream.Read(channelID);
+	packetStream.Read(unknown);
+	packetStream.Read(messageLength);
+
+	vector<wchar_t> msgVector;
+	msgVector.reserve(messageLength);
+	for (unsigned long k = 0; k < messageLength; k++) {
+		wchar_t mchr = packetStream.Read(mchr);
+		msgVector.push_back(mchr);
+	}
+
+	std::wstring message(msgVector.begin(), msgVector.end());
+	std::string wstr(message.begin(), message.end());
+}
 
 unsigned long FindCharShirtID(unsigned long shirtColor, unsigned long shirtStyle) {
 	unsigned long shirtID = 0;

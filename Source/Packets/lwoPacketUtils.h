@@ -1,19 +1,10 @@
 #pragma once
 #include "lwoServerPackets.h"
+#include <vector>
 
 namespace lwoPacketUtils {
 	void ServerSendPacket(RakPeerInterface* rakServer, char* data, unsigned int len, const SystemAddress& address);
 	void ServerSendPacket(RakPeerInterface* rakServer, const std::vector<unsigned char>& msg, const SystemAddress& address);
-	/*
-	void ServerSendPacket(RakPeerInterface* rakServer, char* data, unsigned int len, const SystemAddress& addres) {
-		if (len > 0)
-			rakServer->Send(data, len, SYSTEM_PRIORITY, RELIABLE_ORDERED, 0, addres, false);
-	}
-
-	void ServerSendPacket(RakPeerInterface* rakServer, const vector<unsigned char>& msg, const SystemAddress& addres) {
-		ServerSendPacket(rakServer, (char*)msg.data(), msg.size(), addres);
-	}
-	*/
 	std::string RawDataToString(unsigned char* data, unsigned int size, bool onlyraw);
 	void createPacketHeader(unsigned char uPacketID, unsigned short sConnectionType, unsigned int iInternalPacketID, RakNet::BitStream* bitStream);
 	void writeStringToPacket(std::string sString, int maxSize, RakNet::BitStream* bitStream);

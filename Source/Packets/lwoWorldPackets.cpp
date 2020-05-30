@@ -41,10 +41,10 @@ void lwoWorldPackets::validateClient(RakPeerInterface* rakServer, Packet* packet
 	if (g_ourPort != 2002) { //if not running as char, send TransferToZone/LoadStaticZone:
 		RakNet::BitStream bitStream;
 		lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CLIENT, MSG_CLIENT_LOAD_STATIC_ZONE, &bitStream);
-		bitStream.Write(unsigned short(1100)); //bitStream.Write(unsigned short(g_ourZone));
+		bitStream.Write(unsigned short(g_ourZone));
 		bitStream.Write(unsigned short(0)); //instance
 		bitStream.Write(unsigned int(0)); //clone
-		bitStream.Write(unsigned int(3798)); //bitStream.Write(unsigned int(g_ourZoneRevision)); 
+		bitStream.Write(unsigned int(g_ourZoneRevision)); 
 		bitStream.Write(unsigned short(0)); //???
 		bitStream.Write(float(0));
 		bitStream.Write(float(0));
@@ -328,6 +328,11 @@ void lwoWorldPackets::handleChatMessage(RakPeerInterface* rakServer, Packet* pac
 
 	std::wstring message(msgVector.begin(), msgVector.end());
 	std::string wstr(message.begin(), message.end());
+
+	RakNet::BitStream bitStream;
+	lwoPacketUtils::createPacketHeader(ID_USER_PACKET_ENUM, CONN_CHAT, MSG_CHAT_GENERAL_MESSAGE, &bitStream);
+
+	rakServer->Send(&bitStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, UNASSIGNED_SYSTEM_ADDRESS, false);
 }
 
 void lwoWorldPackets::handleGameMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user)
@@ -345,11 +350,13 @@ void lwoWorldPackets::handleGameMessage(RakPeerInterface* rakServer, Packet* pac
 	unsigned long long objID; //LWOOBJID
 	unsigned short msgID; //Game message ID
 
+	//Header
 	packetStream.Read(header);
 	packetStream.Read(messageLength);
 	packetStream.Read(msgID);
 	packetStream.Read(objID);
 
+	//Specific messages
 	switch (msgID) {
 		case GameMessageIDs::GAME_MSG_CHAT_COMMAND: {
 			unsigned long padding;
@@ -365,6 +372,7 @@ void lwoWorldPackets::handleGameMessage(RakPeerInterface* rakServer, Packet* pac
 			}
 			break;
 		}
+		//Unknown
 		default: {
 			break;
 		}

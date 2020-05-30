@@ -1,10 +1,15 @@
+## LEGO Universe Alpha Server Emulator
+###### Please note that this is for research. The server structure is pretty messy
+
+## What this is
 lwoWorld, a simple test (world) server for the ALPHA version of LU.
-This project is not related to; and is not DLU.
+This project is not related to; and is not DLU (Darkflame Universe).
 That said; anyone is welcome to work on this project.
 
+This project is not being taken nearly as seriously as Darkflame, it's
+just a side project because we really like the game (and the old UI!)
 
-I'm not taking this project as seriously as I take DLU -- this is just a side thing :P
-(This is mostly just for fun and because I loved alpha LU)
+## Installation
 
 This server has RakNet 3.25 included and can be compiled with Visual Studio 2017.
 
@@ -20,5 +25,5 @@ For now, the server expects the MySQL server to be on localhost, with root as us
 
 For developers, a lot of the packet structure is different from live, so the currect docs from lcdr & humanoid, as helpful as they might be for live, they likely won't be of (that) much use to us as a lot of the netcode has changed since alpha.
 
-[Links:]
+###### Links
 lwoAuth - https://github.com/DarwinAnim8or/lwoAuth

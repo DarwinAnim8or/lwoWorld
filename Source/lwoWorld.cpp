@@ -122,7 +122,12 @@ int main(int argc, char* argv[]) {
 	qrInsertUs->executeQuery();
 	g_ourPort = usServerPort;
 
-	rakServer->Startup(usMaxPlayers, 30, &SocketDescriptor(usServerPort, 0), 1);
+	
+	if (!rakServer->Startup(usMaxPlayers, 30, &SocketDescriptor(usServerPort, 0), 1)) {
+		std::cout << "RakNet Server failed to start" << std::endl;
+		std::cin.get();
+		exit(0);
+	}
 	rakServer->SetIncomingPassword("3.25 ND1", 8);
 	rakServer->SetMaximumIncomingConnections(usMaxPlayers);
 

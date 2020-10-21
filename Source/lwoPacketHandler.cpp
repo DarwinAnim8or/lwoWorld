@@ -2,6 +2,7 @@
 #include "./Packets/lwoServerPackets.h"
 #include "./Packets/lwoAuthPackets.h"
 #include "./Packets/lwoWorldPackets.h"
+#include "./Packets/lwoPacketUtils.h"
 #include <stdio.h>
 
 void lwoPacketHandler::determinePacketHeader(RakPeerInterface* rakServer, Packet* packet, lwoUserPool* userPool) {
@@ -84,6 +85,19 @@ void lwoPacketHandler::handleWorldConnPackets(RakPeerInterface* rakServer, Packe
 	}
 	case MSG_WORLD_CLIENT_LEVEL_LOAD_COMPLETE: {
 		lwoWorldPackets::clientSideLoadComplete(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_GENERAL_CHAT_MESSAGE: {
+		//Does not contain "/" commands
+		lwoWorldPackets::handleChatMessage(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_GAME_MSG: {
+		lwoWorldPackets::handleGameMessage(rakServer, packet, user);
+		break;
+	}
+	case MSG_WORLD_CLIENT_POSITION_UPDATE: {
+		//Broadcast packet to rest of users
 		break;
 	}
 	default:

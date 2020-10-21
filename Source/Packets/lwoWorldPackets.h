@@ -10,6 +10,8 @@ namespace lwoWorldPackets {
 	void clientLoginRequest(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 	void sendMinifigureList(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 	void clientSideLoadComplete(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
+	void handleChatMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
+	void handleGameMessage(RakPeerInterface* rakServer, Packet* packet, lwoUser* user);
 }
 
 enum CharCreatePantsColor : unsigned long {
